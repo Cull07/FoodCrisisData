@@ -1,0 +1,244 @@
+---
+title: "Visualising the 2022 Food Crisis Using GGPlot"
+Author: Robert Culligan
+Date: To be decided
+output:
+  html_notebook: default
+  pdf_document: default
+---
+
+## Introduction
+
+One checkpoint in my data analysis journey is building proficiency in coding. The Google Data Analytics Professional Certificate focused on data visualization in R-Coding Language - thus I am building on skills I am already familiar with. In this regard, I also wanted to look at a topic that touches upon my academic interest. I recently completed my Master's in International Affairs, therefore I thought international food prices would be able to satisfy both areas of interest. Considering the current state of the world, I wanted to look at something related to the Russo-Ukrainian War. Since February 24th 2022, the conflict in this region has had large scale ramifications on the nature of our global order. In this manner, I wanted to help shine a light on a more forgotten part of this conflict. Considering the fact that Russia and Ukraine remain significant producers of staple food products - such as grain - I want to look at the wider effects of war of global markets.
+
+Throughout this project, I have largely relied on the data provided by the United Nations [Food and Agriculture Organization](https://www.fao.org/home/en) (FAO) - which maintains a number of data sets related to the global food trends. I will explore the specifics of these data sets later in this notebook.
+
+## Context
+
+On the 24 February 2022, the Russia conducted a full-scale invasion of its neighbour, Ukraine. The invading force blockaded seaports. In response, Kyiv’s western partners imposed a number of sanctions on the Russian Federation. On the 22 July 2022, Ukraine and Russia signed an agreement alleviating the naval blockade of Odessa Port. This agreement allowed Ukraine to continue exporting grain to its buyers. In exchange, sanctions against Russian agricultural exports were relaxed.
+
+## Project Goals
+
+As previously noted, this project is designed to help me develop my skills in R, specifically using the "GGplot2" package. As such, I'd like to provide a clear overview of the crisis. Consequently, I state the project task thusly:
+
+#### "Identify recent trends in global food prices and provide a general overview of the crisis" 
+
+In this regard, I want to achieve 5 objectives in the pursuit of this goal:
+
+1. Visualize the recent trends in the global food prices, identifying the main food groups being traded on the global stage
+2. Identify the most affected areas in Global Food Prices.
+3. Outline the largest exports of Grain/Oil products
+
+## Loading the R Packages
+
+As demonstrated below, I have included "tidyverse" and "reshape 2" into this project. "tidyverse" contains the GGplot2 package, which I will use to visualize the data. Moreover, "reshape2" will allow me to transform the data so so it may be formatted in a GGplot-friendly way. RSQLite, dplyr, and dbplyr have been installed to wrangle some of the larger data sets being used in this project.
+
+```{r}
+install.packages ("tidyverse")
+install.packages("reshape2")
+install.packages("RSQLite")
+install.packages("dplyr")
+install.packages("dbplyr")
+```
+
+LOAD
+
+```{r}
+library(reshape2)
+library(tidyverse)
+library(RSQLite)
+library(dplyr)
+library(dbplyr)
+```
+
+## Assessing and Loading the Data sets
+
+### Global Food Prices
+
+The first data set, FAOFP1990_2022.csv, is sourced directly from the [FAO Website](https://www.fao.org/worldfoodsituation/foodpricesindex/en/). It contains a monthly record of food prices from January 1990 to September 2022. Before uploading, I performed a cursory cleaning of the data set in Google Sheets to ensure the date format was compatible with GGPlot2. That being said, the data must be viewed in order to understand how it needs to be transformed.
+
+```{r}
+food_price <- read.csv(file = "FAO_Directory/FAOFP1990_2022.csv", head = TRUE, sep=" ")
+str(food_price)
+```
+
+The data currently in a "wide" format, meaning that it will not be read by GGPlot. Thus, the data must be transformed into a "long" format. What is also apparent is that the "Date" column is being listed as a string rather than a Date Format, meaning that GGplot will not recognize this variable for what it is. These transformations will be conducted in a later section.
+
+### Global Oil Prices
+
+The second data set, data-7CJvd.csv, comes from outside of the FAO. This dataset was collected by [Bloomberg](https://www.ifpri.org/blog/impact-ukraine-crisis-global-vegetable-oil-market).This set tracks the overall price of different food oils over the course of the last two years. I have done some rudementary cleaning of the dataset in order to eliminate null values in Excel.
+
+```{r}
+oil_price <- read.csv("FAO_Directory/data-7CJvd.csv")
+str(oil_price)
+```
+
+The data currently in a "wide" format, meaning that it will not be read by GGPlot. Thus, the data must be transformed into a "long" format. What is also apparent is that the "Date" column is being listed as a string rather than a Date Format, meaning that GGplot will not recognize this variable for what it is. These transformations will be conducted in a later section.
+
+### Global Wheat/Oil Market
+
+The secondary data set was also acquired from the [FAO Website](https://www.fao.org/faostat/en/#data/TCL). It contains the value and volume of imports/exports by country from 1961 up to and including 2020. With regards to the Metadata of this set, FAO states the following:
+
+*"The data is mainly provided by UNSD, Eurostat, and other national authorities as needed. This source data is checked for outliers, trade partner data is used for non-reporting countries or missing cells, and data on food aid is added to take into account total cross-border trade flows. The trade database includes the following variables: export quantity, export value, import quantity, and import value. The trade database includes all food and agricultural products imported/exported annually by all the countries in the world."*
+
+```{r}
+FAOTradeData <- read.csv("FAO_Directory/FAOSTAT_data_en_10-19-2022.csv")
+str(FAOTradeData)
+```
+
+This set includes a significant amount of data that isn't relevant to the question at hand. My intention with this set is to lay out who is to lay out the significance Ukraine and Russia in the Global Grain Market The data set contain 13 variables and 17,444,859 observations. As such, it needs to be wrangled down in order to whittle it down to focus on the Grain Market. For this task, I chose to use SQL.
+
+## Transforming and Wrangling Data
+
+### Global Food Prices
+
+In order to make the first data set compatible with the GGplot Package. As such, "wide" data needs to be converted into a long format. This can be done my utilizing the functions included in the reshape2 package - which includes "melt". My intention with this data set is to turn it into a line graph that tracks over the past 5 years. As such, the graph needs to be defined by Date (on the X axis) and Value (on the Y axis).Consequently, the data will be reshaped using the ID Variable "Date". 
+
+```{r}
+long <- reshape2::melt(food_price, id.vars = "Date") 
+str(long)
+```
+
+The transformed data set, "Long", requires the variable "Date" to be transformed from a string to a Date format. This will allow GGplot to recognize the date it is processing.
+
+```{r}
+long$Date <- as.Date(long$Date, format="%d/%m/%Y")
+str(long)
+```
+
+### Oil Food Prices
+
+In order to make the second data set compatible with the GGplot Package. As such, "wide" data needs to be converted into a long format. This can be done my utilizing the functions included in the reshape2 package - which includes "melt". My intention with this data set is to turn it into a line graph that tracks over the past 2 years. As such, the graph needs to be defined by Date (on the X axis) and Value (on the Y axis).Consequently, the data will be reshaped using the ID Variable "Date".
+
+```{r}
+long2 <- reshape2::melt(oil_price, id.vars = "Date") 
+str(long2)
+```
+
+The transformed data set, "Long2", requires the variable "Date" to be transformed from a string to a Date format. This will allow GGplot to recognize the date it is processing.
+
+```{r}
+long2$Date <- as.Date(long2$Date, format="%d/%m/%Y")
+str(long2)
+```
+
+### Wheat Exports
+
+This data set needs to be wrangled in order to make the data easier to handle.
+
+```{r}
+conn <- src_memdb()  # This function sets up a database through which we can write SQL queries
+
+copy_to(conn, 
+        FAOTradeData,
+        overwrite  = TRUE) # This function populates the database with values using the Data Frame "FAOTradeData"
+```
+
+This code lays the ground work for Native SQL queries in R. The Next step will run a query on the Export data set and find out the top 20 exporters of Wheat.
+
+
+```{r}
+GE <- tbl(conn, sql("SELECT AREA,
+                      VALUE
+              FROM FAOTradeData 
+              WHERE 
+              Year = 2020 AND Element = 'Export Value' AND
+              Item = 'Wheat'
+              GROUP BY AREA
+              ORDER BY VALUE DESC
+              Limit 20
+              "))
+```
+
+Labeling will allow me to convert the query into a data frame for visualization.
+
+```{r}
+GrainExporters <- as.data.frame(GE)
+str(GrainExporters)
+```
+
+### Oil Exports
+
+The Imports process will largely mirror the Wheat Export Process. This code lays the ground work for Native SQL queries in R. The Next step will run a query on the import data set and find out the top 20 Importers of Wheat.
+
+```{r}
+OI <- tbl(conn, sql("SELECT AREA,
+                      VALUE
+              FROM FAOTradeData
+              WHERE 
+              Year = 2020 AND Element = 'Export Value' AND
+              (Item = 'Sunflower-seed oil, crude')
+              GROUP BY AREA
+              ORDER BY VALUE DESC
+              Limit 20
+              "))
+```
+
+Labeling will allow me to convert the query into a data frame for visualization.
+
+```{r}
+OilExporters <- as.data.frame(OI)
+str(OilExporters)
+```
+
+
+## Visualisation
+
+### Global Food Prices
+
+I have chosen to display this data as a line graph. This format will allow me to display data over the last 5 years. 
+
+```{r}
+ggplot(long, aes(x=Date, y = value, group = variable, colour = variable)) +
+  geom_line()+
+  scale_y_continuous(limits = c(0, 270))+
+  ggtitle("FAO Global Food Prices (2017-2022)")+
+  labs(colour = "Food Types", subtitle = "Acquired from the UN")+
+  scale_x_date(limits = as.Date(c('2017-01-01','2022-09-01')))
+```
+Considering the data outlined by the FAO, it seems that the main food groups in question are Meat, Dairy, Cereals, Oils, Sugar. Oil and Cereals have risen the most over the past year. It seems from the data available that the current food price has yet to recover from the compounded effects of the 2020 COVID Pandemic. Moreover, it is clear that oil prices have risen sharply over the past year. Gareth Price, expert from Chatham House, validates this hypothesis noting that global supply chains are yet to recover from the COVID-19 pandemic.
+
+### Global Oil Prices
+
+I have chosen to display this data as a line graph. This format will allow me to display data over the last 5 years. 
+
+```{r}
+ggplot(long2, aes(x=Date, y = value, group = variable, colour = variable)) +
+  geom_line()+
+  scale_y_continuous(limits = c(0, 3000))+
+  ggtitle("FAO Global Food Prices (2017-2022)")+
+  labs(colour = "Food Types", subtitle = "Acquired from the UN")
+```
+The swing in price is largest in the sunflower oil, what will be demonstrated later as an important export of both Russia and Ukraine.
+
+### Wheat Export
+
+This visual will be displayed as a bar graph. This will help compare the exports value of the world's 20 largest wheat exporters.
+
+```{r}
+ggplot(GrainExporters, aes(x = reorder(Area, -Value), y = Value, fill=Area))+
+  geom_bar(stat = 'identity')+
+  scale_fill_manual(values = c("Ukraine" = "red",
+                               "Russian Federation" = "red"))+
+  ggtitle("Largest Wheat Exporters 2020")+
+  theme(axis.text.x = element_text(angle = 90), legend.position = "none")+ 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+```
+What this demonstrates is the role Ukraine and Russia play in the global grain markets. It's clear that the blockade of Ukrainian Ports and sanctioning of Russian exports.
+
+### Oil Exports
+
+This visual will be displayed as a bar graph. This will help compare the exports value of the world's 20 largest Oil exporters.
+
+```{r}
+ggplot(OilExporters, aes(x = reorder(Area, -Value), y = Value, fill=Area))+
+  geom_bar(stat = 'identity')+
+  scale_fill_manual(values = c("Ukraine" = "red",
+                               "Russian Federation" = "red"))+
+  ggtitle("Largest Sunflower Oil Exporters 2020")+
+  theme(axis.text.x = element_text(angle = 90), legend.position = "none")+ 
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+```
+What this demonstrates is the role Ukraine and Russia play in the global grain markets. It's clear that the blockade of Ukrainian Ports and sanctioning of Russian exports.
+
+
